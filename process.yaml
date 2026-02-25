@@ -1,0 +1,652 @@
+name: portfolio-design
+version: "1.0"
+schema_version: 2
+description: >
+  Allocator-level portfolio construction process for translating investor goals
+  and constraints into an actionable portfolio with risk diagnostics,
+  stress-tested hedging logic, and ongoing monitoring rules. Supports both
+  numeric targets and natural-language mandates, including optional external
+  household exposures such as private real estate.
+author: "SFW"
+tags: [finance, portfolio, asset-allocation, risk-management, hedging]
+
+persona: |
+  You are a senior multi-asset portfolio architect. Think in constraints,
+  factor exposures, drawdown control, and implementation feasibility.
+  Translate ambiguous investor language into explicit optimization objectives.
+  Always reconcile allocation math, distinguish assumptions from evidence, and
+  state when objectives are infeasible under stated constraints.
+
+phase_mode: strict
+
+tool_guidance: |
+  Use CSV for tabular outputs and Markdown for narrative rationale.
+  Keep all dollar math in USD unless otherwise specified and document any
+  currency normalization. Prefer deterministic tool outputs for allocation math,
+  scenario calculations, and exposure aggregation. Every recommendation must
+  include explicit thesis-break triggers and monitoring thresholds.
+  Use `market_data_api` (`get_prices`, `get_returns`) for market inputs,
+  `macro_regime_engine` (`classify_regime`, `score_headwinds_tailwinds`) for
+  regime scoring, `factor_exposure_engine` (`estimate_betas`,
+  `factor_contribution`) for exposure diagnostics, `portfolio_optimizer`
+  (`optimize_mvo`, `optimize_risk_parity`, `optimize_cvar`) for construction,
+  and `portfolio_evaluator` (`risk_stats`, `drawdown`,
+  `benchmark_attribution`) for stress and risk validation.
+
+tools:
+  guidance: >
+    Use market and macro tools for signal inputs, factor/portfolio tools for
+    construction and validation, spreadsheet/calculator for reconciliation, and
+    document_write for narrative outputs.
+  required:
+    - market_data_api
+    - symbol_universe_api
+    - sec_fundamentals_api
+    - sentiment_feeds_api
+    - macro_regime_engine
+    - factor_exposure_engine
+    - valuation_engine
+    - opportunity_ranker
+    - portfolio_optimizer
+    - portfolio_evaluator
+    - portfolio_recommender
+    - economic_data_api
+    - historical_currency_normalizer
+    - inflation_calculator
+    - spreadsheet
+    - calculator
+    - document_write
+    - read_file
+    - write_file
+    - search_files
+  excluded: [delete_file, shell_execute, git_command]
+
+phases:
+  - id: intake-normalization
+    description: >
+      Parse goal text, optional portfolio brief files, and constraints into a
+      normalized machine-readable intake contract for downstream modeling.
+    depends_on: []
+    model_tier: 2
+    verification_tier: 2
+    is_critical_path: true
+    acceptance_criteria: >
+      Produces normalized intake with capital, objective type, horizon, risk
+      profile, liquidity needs, constraints, and external exposures (if
+      provided). Ambiguous instructions are converted into explicit assumptions.
+    deliverables:
+      - "portfolio-intake.normalized.json — normalized objective and constraints"
+      - "intake-notes.md — assumptions, ambiguities, and normalization notes"
+
+  - id: total-balance-sheet-exposure-model
+    description: >
+      Translate external holdings into proxy factor exposures to model baseline
+      household risk concentration before allocating liquid capital.
+    depends_on: [intake-normalization]
+    model_tier: 3
+    verification_tier: 2
+    is_critical_path: true
+    acceptance_criteria: >
+      External exposures are mapped to proxy factors with rationale and
+      sensitivity notes. Baseline concentration and overlap risks are quantified
+      even when external exposure data is partially specified.
+    deliverables:
+      - "external-exposure-model.csv — external holdings mapped to proxy factors"
+      - "total-portfolio-baseline-risk.md — baseline concentration and overlap risk summary"
+
+  - id: macro-and-sentiment-regime
+    description: >
+      Build current macro and sentiment regime context and quantify expected
+      headwinds and tailwinds for candidate asset classes and factors.
+    depends_on: [intake-normalization]
+    model_tier: 2
+    verification_tier: 2
+    acceptance_criteria: >
+      Regime classification is explicit, evidence-backed, and linked to
+      directional implications for growth, duration, inflation sensitivity,
+      credit risk, and defensive assets.
+    deliverables:
+      - "macro-regime.md — current macro/sentiment regime with implications"
+      - "headwind-tailwind-scorecard.csv — regime impact scores by asset/factor"
+      - "sentiment-scorecard.csv — sentiment signal summary by horizon"
+
+  - id: universe-and-candidate-construction
+    description: >
+      Build the investable universe and candidate set consistent with intake
+      constraints, objective profile, liquidity needs, and regime context.
+    depends_on:
+      [intake-normalization, total-balance-sheet-exposure-model, macro-and-sentiment-regime]
+    model_tier: 2
+    verification_tier: 2
+    is_critical_path: true
+    acceptance_criteria: >
+      Candidate universe includes rationale for inclusion/exclusion, objective
+      fit notes, and constraint compliance checks (asset eligibility, liquidity,
+      concentration caps, and exclusion list handling).
+    deliverables:
+      - "candidate-universe.csv — filtered investable candidates with metadata"
+      - "candidate-rationales.md — inclusion/exclusion rationale and objective fit"
+
+  - id: expected-return-risk-model
+    description: >
+      Estimate expected returns, covariance structure, and factor exposures for
+      candidates with explicit assumptions, quality flags, and data limitations.
+    depends_on: [universe-and-candidate-construction]
+    model_tier: 3
+    verification_tier: 2
+    is_critical_path: true
+    acceptance_criteria: >
+      Return and risk assumptions are documented, covariance and factor matrices
+      are coherent, and model limitations are explicit. Any imputation or proxy
+      logic is recorded in an assumptions register.
+    deliverables:
+      - "expected-returns.csv — expected return inputs by candidate"
+      - "covariance-matrix.csv — risk covariance matrix for candidates"
+      - "factor-exposure-matrix.csv — factor exposures by candidate"
+      - "assumptions-register.md — modeling assumptions and data caveats"
+
+  - id: opportunity-ranking
+    description: >
+      Rank opportunities based on risk-adjusted fit to objective and define
+      thesis-break conditions and invalidation triggers for top candidates.
+    depends_on: [expected-return-risk-model]
+    model_tier: 2
+    verification_tier: 2
+    acceptance_criteria: >
+      Rankings include rationale tied to expected return, risk contribution, and
+      objective alignment. Top candidates include explicit thesis-break triggers
+      with measurable indicators.
+    deliverables:
+      - "opportunity-rankings.csv — ranked opportunities with scoring factors"
+      - "thesis-breakers.csv — measurable invalidation triggers by candidate"
+
+  - id: portfolio-construction
+    description: >
+      Construct target portfolio weights and dollar allocations under stated
+      constraints using objective-specific optimization logic (return target,
+      preservation, income, balanced, or total-portfolio hedge).
+    depends_on: [opportunity-ranking, total-balance-sheet-exposure-model]
+    model_tier: 3
+    verification_tier: 2
+    is_critical_path: true
+    acceptance_criteria: >
+      Target weights and dollars reconcile to supplied capital. Constraint
+      compliance is explicit. If objectives are infeasible, output a clear
+      infeasibility explanation and closest-feasible portfolio.
+    deliverables:
+      - "target-portfolio-weights.csv — target weights by asset"
+      - "dollar-allocation-plan.csv — dollar allocations by asset"
+      - "rebalancing-trade-list.csv — implementation trades from baseline to target"
+
+  - id: stress-testing-and-hedge-validation
+    description: >
+      Stress test the liquid portfolio and total portfolio (including external
+      exposures) and validate hedge effectiveness under adverse scenarios.
+    depends_on: [portfolio-construction, total-balance-sheet-exposure-model]
+    model_tier: 3
+    verification_tier: 2
+    is_critical_path: true
+    acceptance_criteria: >
+      Includes at least five scenarios: equity selloff, recession, inflation
+      spike, rate shock, and (when external real-estate exposure exists)
+      real-estate downturn. Reports downside impact and mitigation options.
+    deliverables:
+      - "stress-test-results.csv — scenario outcomes for liquid portfolio"
+      - "hedge-effectiveness.md — hedge rationale and effectiveness analysis"
+      - "total-portfolio-outcomes.csv — combined outcomes including external exposures"
+
+  - id: recommendation-and-monitoring
+    description: >
+      Synthesize outputs into an actionable recommendation package with final
+      weights, rationale, risk controls, monitoring triggers, and rebalance
+      policy linked to objective-specific decision rules.
+    depends_on:
+      [intake-normalization, total-balance-sheet-exposure-model, macro-and-sentiment-regime, universe-and-candidate-construction, expected-return-risk-model, opportunity-ranking, portfolio-construction, stress-testing-and-hedge-validation]
+    model_tier: 3
+    verification_tier: 2
+    is_critical_path: true
+    is_synthesis: true
+    acceptance_criteria: >
+      Recommendation explains objective alignment, key assumptions, hedge logic,
+      downside guardrails, and implementation cadence. Monitoring rules define
+      metric, threshold, action, and cadence for every key risk trigger.
+    deliverables:
+      - "portfolio-recommendation.md — final recommendation and rationale"
+      - "monitoring-alert-rules.csv — metrics, thresholds, actions, and cadence"
+      - "rebalance-policy.md — rebalance framework and escalation rules"
+      - "source-index.csv — sources and evidence linkage for major claims"
+
+tests:
+  - id: smoke-return-target
+    mode: deterministic
+    goal: "Design a portfolio for $600000 targeting 9% annual return with max 15% drawdown."
+    timeout_seconds: 900
+    acceptance:
+      phases:
+        must_include:
+          - intake-normalization
+          - total-balance-sheet-exposure-model
+          - macro-and-sentiment-regime
+          - universe-and-candidate-construction
+          - expected-return-risk-model
+          - opportunity-ranking
+          - portfolio-construction
+          - stress-testing-and-hedge-validation
+          - recommendation-and-monitoring
+      deliverables:
+        must_exist:
+          - portfolio-intake.normalized.json
+          - intake-notes.md
+          - external-exposure-model.csv
+          - total-portfolio-baseline-risk.md
+          - macro-regime.md
+          - headwind-tailwind-scorecard.csv
+          - sentiment-scorecard.csv
+          - candidate-universe.csv
+          - candidate-rationales.md
+          - expected-returns.csv
+          - covariance-matrix.csv
+          - factor-exposure-matrix.csv
+          - assumptions-register.md
+          - opportunity-rankings.csv
+          - thesis-breakers.csv
+          - target-portfolio-weights.csv
+          - dollar-allocation-plan.csv
+          - rebalancing-trade-list.csv
+          - stress-test-results.csv
+          - hedge-effectiveness.md
+          - total-portfolio-outcomes.csv
+          - portfolio-recommendation.md
+          - monitoring-alert-rules.csv
+          - rebalance-policy.md
+          - source-index.csv
+      verification:
+        forbidden_patterns:
+          - "Expected deliverable '.*' not found"
+          - "\\[TBD\\]|\\[TODO\\]|\\[INSERT\\]|\\[PLACEHOLDER\\]"
+
+  - id: smoke-capital-preservation
+    mode: deterministic
+    goal: "Protect $500000 of deployable capital during market turmoil with strong drawdown control."
+    timeout_seconds: 900
+    acceptance:
+      phases:
+        must_include:
+          - intake-normalization
+          - total-balance-sheet-exposure-model
+          - macro-and-sentiment-regime
+          - universe-and-candidate-construction
+          - expected-return-risk-model
+          - opportunity-ranking
+          - portfolio-construction
+          - stress-testing-and-hedge-validation
+          - recommendation-and-monitoring
+      deliverables:
+        must_exist:
+          - portfolio-intake.normalized.json
+          - intake-notes.md
+          - external-exposure-model.csv
+          - total-portfolio-baseline-risk.md
+          - macro-regime.md
+          - headwind-tailwind-scorecard.csv
+          - sentiment-scorecard.csv
+          - candidate-universe.csv
+          - candidate-rationales.md
+          - expected-returns.csv
+          - covariance-matrix.csv
+          - factor-exposure-matrix.csv
+          - assumptions-register.md
+          - opportunity-rankings.csv
+          - thesis-breakers.csv
+          - target-portfolio-weights.csv
+          - dollar-allocation-plan.csv
+          - rebalancing-trade-list.csv
+          - stress-test-results.csv
+          - hedge-effectiveness.md
+          - total-portfolio-outcomes.csv
+          - portfolio-recommendation.md
+          - monitoring-alert-rules.csv
+          - rebalance-policy.md
+          - source-index.csv
+      verification:
+        forbidden_patterns:
+          - "Expected deliverable '.*' not found"
+          - "\\[TBD\\]|\\[TODO\\]|\\[INSERT\\]|\\[PLACEHOLDER\\]"
+
+  - id: smoke-total-portfolio-hedge
+    mode: deterministic
+    goal: >
+      Design a liquid portfolio for $600000 that hedges an existing $1200000
+      Bay Area private real-estate exposure while preserving long-term growth.
+    timeout_seconds: 900
+    acceptance:
+      phases:
+        must_include:
+          - intake-normalization
+          - total-balance-sheet-exposure-model
+          - macro-and-sentiment-regime
+          - universe-and-candidate-construction
+          - expected-return-risk-model
+          - opportunity-ranking
+          - portfolio-construction
+          - stress-testing-and-hedge-validation
+          - recommendation-and-monitoring
+      deliverables:
+        must_exist:
+          - portfolio-intake.normalized.json
+          - intake-notes.md
+          - external-exposure-model.csv
+          - total-portfolio-baseline-risk.md
+          - macro-regime.md
+          - headwind-tailwind-scorecard.csv
+          - sentiment-scorecard.csv
+          - candidate-universe.csv
+          - candidate-rationales.md
+          - expected-returns.csv
+          - covariance-matrix.csv
+          - factor-exposure-matrix.csv
+          - assumptions-register.md
+          - opportunity-rankings.csv
+          - thesis-breakers.csv
+          - target-portfolio-weights.csv
+          - dollar-allocation-plan.csv
+          - rebalancing-trade-list.csv
+          - stress-test-results.csv
+          - hedge-effectiveness.md
+          - total-portfolio-outcomes.csv
+          - portfolio-recommendation.md
+          - monitoring-alert-rules.csv
+          - rebalance-policy.md
+          - source-index.csv
+      verification:
+        forbidden_patterns:
+          - "Expected deliverable '.*' not found"
+          - "\\[TBD\\]|\\[TODO\\]|\\[INSERT\\]|\\[PLACEHOLDER\\]"
+
+  - id: live-canary
+    mode: live
+    goal: "Run a full portfolio-design workflow with live market and macro context."
+    timeout_seconds: 1200
+    requires_network: true
+
+verification:
+  policy:
+    mode: llm_first
+    static_checks:
+      tool_success_policy: safety_integrity_only
+      file_integrity_policy: enforce_nonempty_changed_files
+      syntax_policy: enforce_parseable_artifacts
+      deliverable_existence_policy: enforce_declared_deliverables
+    semantic_checks:
+      - id: process-rules
+        check: "Apply process-defined verification rules and acceptance criteria."
+        severity: error
+        enforcement: hard
+        scope: phase
+    output_contract:
+      required_fields:
+        - passed
+        - outcome
+        - reason_code
+        - severity_class
+        - confidence
+        - feedback
+        - issues
+        - metadata
+      metadata_fields:
+        - objective_feasibility
+        - allocation_integrity
+        - hedge_delta
+        - scenario_coverage
+    outcome_policy:
+      pass_states: [pass, pass_with_warnings, partial_verified]
+      fail_states: [fail]
+  remediation:
+    strategies:
+      - id: targeted-remediation
+        retry_strategy: unconfirmed_data
+        description: "Address failing checks with minimal, targeted edits."
+    default_strategy: targeted-remediation
+    critical_path_behavior: block
+    retry_budget:
+      max_attempts: 2
+    transient_retry_policy:
+      retry_on_transient: true
+  rules:
+    - name: allocation-math-integrity
+      description: "Allocation weights and dollar allocations must reconcile"
+      check: >
+        Verify target portfolio weights sum to 100% (+/- 0.5%) and dollar
+        allocations reconcile to deployable capital. Confirm no negative
+        allocations unless explicitly permitted by constraints.
+      severity: error
+      type: llm
+      applies_to_phases: [portfolio-construction, recommendation-and-monitoring]
+
+    - name: objective-alignment
+      description: "Portfolio design must align with the declared objective type"
+      check: >
+        Confirm recommendations match the objective profile. For return_target,
+        modeled return must meet target or include explicit infeasibility
+        explanation. For capital_preservation, drawdown/CVaR improvement versus
+        baseline must be shown. For total_portfolio_hedge, concentration or
+        correlation to specified external risk must be reduced versus baseline.
+      severity: error
+      type: llm
+      applies_to_phases: [portfolio-construction, stress-testing-and-hedge-validation, recommendation-and-monitoring]
+
+    - name: hedge-effectiveness-required-when-external-exposure
+      description: "Hedge effectiveness analysis is required when external exposures exist"
+      check: >
+        If external exposures are present in normalized intake, verify that
+        hedge-effectiveness.md and total-portfolio-outcomes.csv explicitly
+        quantify pre/post hedge risk behavior and residual concentration risks.
+      severity: error
+      type: llm
+      applies_to_phases: [stress-testing-and-hedge-validation, recommendation-and-monitoring]
+
+    - name: scenario-coverage
+      description: "Stress test must cover required scenarios and mitigation actions"
+      check: >
+        Confirm stress tests include equity selloff, recession, inflation spike,
+        and rate shock. If external real-estate exposure exists, confirm a
+        real-estate downturn scenario is included. Each scenario must include
+        downside analysis and at least one mitigation action.
+      severity: error
+      type: llm
+      applies_to_phases: [stress-testing-and-hedge-validation]
+
+    - name: assumption-transparency
+      description: "Material assumptions and data limitations must be explicit"
+      check: >
+        Validate that expected-return-risk-model and final recommendation
+        document key assumptions, proxy mappings, and data limitations without
+        hiding uncertainty behind generic language.
+      severity: warning
+      type: llm
+      applies_to_phases: [expected-return-risk-model, recommendation-and-monitoring]
+
+    - name: thesis-breaker-coverage
+      description: "Recommendations must include measurable thesis-break triggers"
+      check: >
+        Ensure thesis-breakers are explicit, measurable, and mapped to named
+        assets/exposures. Final recommendation must reference these triggers and
+        corresponding action guidance.
+      severity: error
+      type: llm
+      applies_to_phases: [opportunity-ranking, recommendation-and-monitoring]
+
+    - name: monitoring-rule-completeness
+      description: "Monitoring rules must include metric, threshold, action, cadence"
+      check: >
+        Review monitoring-alert-rules.csv and verify each rule has metric,
+        threshold, action, and cadence populated with specific values.
+      severity: error
+      type: llm
+      applies_to_phases: [recommendation-and-monitoring]
+
+    - name: no-placeholders
+      description: "No placeholder text in deliverables"
+      check: "\\[TBD\\]|\\[TODO\\]|\\[INSERT\\]|\\[PLACEHOLDER\\]|XX%|N/A"
+      severity: error
+      type: regex
+      target: deliverables
+      enforcement: hard
+      applies_to_phases: ["*"]
+
+evidence:
+  record_schema:
+    required_fields: [evidence_id, tool, source_url, created_at, quality]
+    facets: [target, entity, subject, region, category, factor, scenario, constraint]
+  extraction:
+    include_result_facets: true
+    arg_mappings:
+      target: [target, entity, subject, portfolio, asset]
+      region: [region, geography, country]
+      category: [category, dimension, theme, objective]
+  summarization:
+    max_entries: 12
+    include_facets: true
+
+prompt_contracts:
+  evidence_contract:
+    enabled: true
+    applies_to_phases: ["*"]
+  executor_constraints: |
+    Normalize intake before modeling and preserve the normalized fields.
+    Keep allocation outputs mathematically consistent across all deliverables.
+    If assumptions or proxies are used, record them in assumptions-register.md.
+    If an objective cannot be achieved under constraints, state infeasibility
+    clearly and provide nearest-feasible alternatives.
+  verifier_constraints: |
+    Apply acceptance criteria and verification rules phase-by-phase.
+    Do not infer missing evidence; mark coverage gaps explicitly.
+  remediation_instructions:
+    default: |
+      Perform targeted remediation only for failing checks. Preserve validated
+      work and patch missing math, scenario coverage, or evidence linkage.
+
+memory:
+  extract_types:
+    - type: investor_constraint
+      description: "Explicit investor rule or portfolio bound that affects construction"
+    - type: external_exposure
+      description: "External asset exposure with proxy factor mapping and risk implication"
+    - type: regime_signal
+      description: "Macro or sentiment signal that influences allocation direction"
+    - type: portfolio_assumption
+      description: "Modeling assumption used in expected return, risk, or optimization"
+    - type: risk_trigger
+      description: "Monitoring threshold that triggers rebalance or risk reduction actions"
+    - type: thesis_breaker
+      description: "Condition that invalidates an allocation thesis"
+    - type: allocation_decision
+      description: "Final allocation choice with objective fit and rationale"
+  extraction_guidance: |
+    Prioritize constraints, assumptions, and triggers that materially change
+    risk-adjusted outcomes. Include context so future runs can reuse prior
+    objective translation and hedge logic.
+
+workspace_analysis:
+  scan_for:
+    - "**/portfolio-brief.* — investor brief in YAML or JSON"
+    - "**/*holdings*.csv — current or external holdings datasets"
+    - "**/*constraints*.json — explicit portfolio constraints"
+    - "**/*risk*.md — prior risk analysis notes"
+    - "**/*.csv — existing portfolio snapshots or model outputs"
+  guidance: |
+    Prefer existing brief/holdings files over inferring constraints from goal
+    text. If prior portfolio snapshots exist, treat them as baseline state for
+    trade-list generation and stress comparison.
+
+planner_examples:
+  - goal: "Design a portfolio for $600k targeting 9% annualized return with max 15% drawdown."
+    subtasks:
+      - id: intake-normalization
+        description: "Normalize numeric return/drawdown targets, horizon, and concentration constraints into machine-readable intake."
+        depends_on: []
+        model_tier: 2
+      - id: total-balance-sheet-exposure-model
+        description: "Map any declared non-liquid exposures to proxy factors for baseline concentration analysis."
+        depends_on: [intake-normalization]
+        model_tier: 3
+      - id: macro-and-sentiment-regime
+        description: "Classify macro regime and sentiment to set expected tailwind/headwind priors."
+        depends_on: [intake-normalization]
+        model_tier: 2
+      - id: universe-and-candidate-construction
+        description: "Build objective-consistent candidate universe after applying all constraints and exclusions."
+        depends_on: [intake-normalization, total-balance-sheet-exposure-model, macro-and-sentiment-regime]
+        model_tier: 2
+      - id: expected-return-risk-model
+        description: "Estimate expected returns, covariance, and factor exposures with explicit assumptions."
+        depends_on: [universe-and-candidate-construction]
+        model_tier: 3
+      - id: opportunity-ranking
+        description: "Rank candidates and define measurable thesis-break triggers."
+        depends_on: [expected-return-risk-model]
+        model_tier: 2
+      - id: portfolio-construction
+        description: "Construct optimized target portfolio satisfying return and drawdown constraints."
+        depends_on: [opportunity-ranking, total-balance-sheet-exposure-model]
+        model_tier: 3
+      - id: stress-testing-and-hedge-validation
+        description: "Run required scenarios and validate downside behavior versus objective."
+        depends_on: [portfolio-construction, total-balance-sheet-exposure-model]
+        model_tier: 3
+      - id: recommendation-and-monitoring
+        description: "Publish recommendation package with allocations, triggers, and rebalance policy."
+        depends_on: [intake-normalization, total-balance-sheet-exposure-model, macro-and-sentiment-regime, universe-and-candidate-construction, expected-return-risk-model, opportunity-ranking, portfolio-construction, stress-testing-and-hedge-validation]
+        model_tier: 3
+
+  - goal: "Protect capital in turmoil and hedge $1.2M Bay Area private real-estate exposure with $600k liquid assets."
+    subtasks:
+      - id: intake-normalization
+        description: "Translate natural-language capital-preservation and hedge mandate into explicit constraints and objective weights."
+        depends_on: []
+        model_tier: 2
+      - id: total-balance-sheet-exposure-model
+        description: "Convert external real-estate holdings into proxy factors and baseline household risk concentrations."
+        depends_on: [intake-normalization]
+        model_tier: 3
+      - id: macro-and-sentiment-regime
+        description: "Assess regime risks most relevant to real-estate and rate-sensitive exposures."
+        depends_on: [intake-normalization]
+        model_tier: 2
+      - id: universe-and-candidate-construction
+        description: "Select liquid instruments that diversify real-estate-linked factor risk under liquidity constraints."
+        depends_on: [intake-normalization, total-balance-sheet-exposure-model, macro-and-sentiment-regime]
+        model_tier: 2
+      - id: expected-return-risk-model
+        description: "Estimate return/risk/factor structure with focus on correlation to external exposure proxies."
+        depends_on: [universe-and-candidate-construction]
+        model_tier: 3
+      - id: opportunity-ranking
+        description: "Rank candidates by hedge efficiency, downside protection, and implementation quality."
+        depends_on: [expected-return-risk-model]
+        model_tier: 2
+      - id: portfolio-construction
+        description: "Optimize for drawdown control and reduction of overlap with external exposure factors."
+        depends_on: [opportunity-ranking, total-balance-sheet-exposure-model]
+        model_tier: 3
+      - id: stress-testing-and-hedge-validation
+        description: "Stress total portfolio in recession, rate shock, and real-estate downturn scenarios to validate hedge effectiveness."
+        depends_on: [portfolio-construction, total-balance-sheet-exposure-model]
+        model_tier: 3
+      - id: recommendation-and-monitoring
+        description: "Deliver actionable hedge-aware allocation plan with monitoring and trigger-based rebalance actions."
+        depends_on: [intake-normalization, total-balance-sheet-exposure-model, macro-and-sentiment-regime, universe-and-candidate-construction, expected-return-risk-model, opportunity-ranking, portfolio-construction, stress-testing-and-hedge-validation]
+        model_tier: 3
+
+replanning:
+  triggers: |
+    - Objective is infeasible under stated constraints.
+    - External exposure data is incomplete for robust factor mapping.
+    - Regime shift materially changes expected return/risk assumptions.
+    - Stress testing reveals unacceptable downside not fixable by local edits.
+  guidance: |
+    If objective is infeasible, tighten assumptions and provide nearest-feasible
+    alternatives with explicit trade-offs. If external exposure data is weak,
+    switch to conservative proxy ranges and document uncertainty. If regime
+    assumptions break, re-run universe, risk model, and construction phases
+    before final synthesis.

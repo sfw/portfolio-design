@@ -1,0 +1,3 @@
+exposure_id,asset_type,description,market_value_usd,location,currency,liquidity_profile,proxy_factors,notes
+re-001,private_real_estate,Bay Area residential portfolio,1200000,US-CA,USD,illiquid,"US_REAL_ESTATE,US_GROWTH,RATE_SENSITIVE",Primary external exposure for hedge calibration.
+pe-001,private_equity,Minority stake in regional services company,250000,US,USD,illiquid,"US_SMALL_CAP,CYCLICALS,CREDIT",Optional secondary exposure.

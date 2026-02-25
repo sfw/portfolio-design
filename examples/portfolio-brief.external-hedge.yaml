@@ -1,0 +1,41 @@
+capital_usd: 600000
+
+objective:
+  type: total_portfolio_hedge
+  description: >
+    Protect liquid capital in market stress while reducing overlap with an
+    existing private Bay Area real-estate exposure.
+  max_drawdown: 0.12
+
+horizon_years: 8
+risk_profile: conservative
+
+liquidity_needs:
+  near_term_cash_needs_usd: 50000
+  emergency_buffer_months: 18
+
+allowed_assets:
+  - us_equity_low_vol_etf
+  - quality_factor_etf
+  - long_treasury_etf
+  - tips_etf
+  - gold_etf
+  - managed_futures_etf
+  - cash
+
+excluded_assets:
+  - concentrated_real_estate_etf
+  - regional_bank_single_stock
+  - leveraged_etf
+
+tax_notes: "Taxable household balance sheet; prioritize robust downside diversification."
+
+constraints:
+  max_weight_per_position: 0.22
+  min_cash_weight: 0.08
+  max_turnover_annual: 0.25
+  sector_cap: 0.25
+  max_portfolio_beta: 0.85
+  max_real_estate_beta_proxy: 0.20
+
+external_exposures_file: "external-holdings.template.csv"

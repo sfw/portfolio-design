@@ -1,0 +1,41 @@
+capital_usd: 500000
+
+objective:
+  type: return_target
+  description: "Optional natural-language mandate."
+  target_return_annual: 0.08
+  max_drawdown: 0.12
+
+horizon_years: 5
+risk_profile: balanced
+
+liquidity_needs:
+  near_term_cash_needs_usd: 30000
+  emergency_buffer_months: 12
+
+allowed_assets:
+  - us_equity_etf
+  - international_equity_etf
+  - investment_grade_bond_etf
+  - tips_etf
+  - commodities_etf
+  - gold_etf
+  - cash
+
+excluded_assets:
+  - leveraged_etf
+  - inverse_etf
+  - concentrated_single_stock
+
+tax_notes: "Taxable account; prefer low-turnover ETF implementations."
+
+constraints:
+  max_weight_per_position: 0.20
+  min_cash_weight: 0.05
+  max_turnover_annual: 0.35
+  sector_cap: 0.30
+  max_portfolio_beta: 1.00
+  max_duration_years: 6.0
+
+external_exposures_file: "external-holdings.template.csv"
+constraints_file: "constraints.template.json"

@@ -1,0 +1,37 @@
+capital_usd: 600000
+
+objective:
+  type: return_target
+  description: "Target growth with controlled drawdown."
+  target_return_annual: 0.09
+  max_drawdown: 0.15
+
+horizon_years: 7
+risk_profile: balanced
+
+liquidity_needs:
+  near_term_cash_needs_usd: 25000
+  emergency_buffer_months: 9
+
+allowed_assets:
+  - us_equity_etf
+  - international_equity_etf
+  - quality_factor_etf
+  - investment_grade_bond_etf
+  - tips_etf
+  - commodities_etf
+  - cash
+
+excluded_assets:
+  - single_stock
+  - leveraged_etf
+  - private_credit
+
+tax_notes: "Taxable account; avoid unnecessary turnover and short-term gains."
+
+constraints:
+  max_weight_per_position: 0.18
+  min_cash_weight: 0.04
+  max_turnover_annual: 0.30
+  sector_cap: 0.28
+  max_portfolio_beta: 1.05

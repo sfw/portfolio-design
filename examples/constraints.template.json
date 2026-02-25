@@ -1,0 +1,13 @@
+{
+  "max_weight_per_position": 0.2,
+  "min_cash_weight": 0.05,
+  "max_turnover_annual": 0.35,
+  "sector_cap": 0.3,
+  "max_portfolio_beta": 1.0,
+  "max_duration_years": 6.0,
+  "concentration_caps": {
+    "equity_total": 0.7,
+    "fixed_income_total": 0.55,
+    "alternatives_total": 0.25
+  }
+}
