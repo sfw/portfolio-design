@@ -71,6 +71,41 @@ This package uses Loom finance and planning tools, including:
 - macro helpers: `economic_data_api`, `historical_currency_normalizer`, `inflation_calculator`
 - artifact generation: `spreadsheet`, `calculator`, `document_write`, `read_file`, `write_file`, `search_files`
 
+## Mutation protocol (maintainers)
+
+This package currently ships no bundled `tools/` Python code. Workspace mutation
+behavior is therefore driven by built-in Loom tools in `tools.required`.
+
+Workspace-writing tools in this package's required set:
+
+- direct path writers: `document_write`, `write_file`, `spreadsheet` (write operations only)
+- output-path writers: `fact_checker`, `market_data_api`, `symbol_universe_api`, `sec_fundamentals_api`, `sentiment_feeds_api`, `macro_regime_engine`, `factor_exposure_engine`, `valuation_engine`, `opportunity_ranker`, `portfolio_optimizer`, `portfolio_evaluator`, `portfolio_recommender`, `economic_data_api`, `historical_currency_normalizer`, `inflation_calculator`
+
+Non-mutating required tools: `read_file`, `search_files`, `calculator`.
+
+`edit_file`, `move_file`, and `delete_file` remain excluded to preserve existing
+process behavior.
+
+### Upgrade checklist for bundled tools
+
+If you add package-local tools under `tools/`, ensure every workspace writer:
+
+1. Sets `is_mutating = True`.
+2. Returns accurate workspace-relative `files_changed` for every successful write/move/delete.
+3. Declares `mutation_target_arg_keys` when write targets are not plain `path` (for example `output_path`, `destination`, `output_json_path`).
+4. Uses `ctx.workspace` + `_resolve_path(...)` so policy targeting is normalized and safe.
+5. Is validated against sealed-artifact flow:
+   - preflight blocks sealed+verified targets without post-seal confirmation evidence
+   - same mutation passes once valid post-seal confirmation evidence exists
+6. Confirms reseal/provenance behavior is tool-agnostic (no hardcoded tool-name assumptions).
+7. Treats `execution.sealed_artifact_post_call_guard = off|warn|enforce` as defense-in-depth only (`off` default for package rollout).
+
+Expected sealed-artifact runtime events to monitor:
+
+- `sealed_policy_preflight_blocked`
+- `sealed_reseal_applied`
+- `sealed_unexpected_mutation_detected`
+
 ## Installation
 
 Install from GitHub:
@@ -137,6 +172,8 @@ See [`examples/portfolio-brief.template.yaml`](examples/portfolio-brief.template
 The package enforces:
 
 - allocation math integrity and capital reconciliation
+- explicit process-level validity contract floors with claim extraction and strict support thresholds
+- temporal consistency gates for synthesis outputs (as-of alignment, cross-claim date conflict checks, source staleness limits)
 - objective-specific alignment checks
 - required hedge effectiveness analysis when external exposures exist
 - required scenario coverage (equity selloff, recession, inflation spike, rate shock, plus real-estate downturn when relevant)

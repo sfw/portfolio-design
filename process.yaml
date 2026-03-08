@@ -1,5 +1,5 @@
 name: portfolio-design
-version: "1.0"
+version: "1.2"
 schema_version: 2
 description: >
   Allocator-level portfolio construction process for translating investor goals
@@ -9,6 +9,7 @@ description: >
   household exposures such as private real estate.
 author: "SFW"
 tags: [finance, portfolio, asset-allocation, risk-management, hedging]
+risk_level: medium
 
 persona: |
   You are a senior multi-asset portfolio architect. Think in constraints,
@@ -19,12 +20,39 @@ persona: |
 
 phase_mode: strict
 
+validity_contract:
+  enabled: true
+  claim_extraction:
+    enabled: true
+  critical_claim_types: [numeric, date, entity_fact]
+  min_supported_ratio: 0.8
+  max_unverified_ratio: 0.2
+  max_contradicted_count: 0
+  prune_mode: rewrite_uncertainty
+  final_gate:
+    enforce_verified_context_only: true
+    synthesis_min_verification_tier: 2
+    critical_claim_support_ratio: 1.0
+    temporal_consistency:
+      enabled: true
+      require_as_of_alignment: true
+      enforce_cross_claim_date_conflict_check: true
+      max_source_age_days: 365
+
 tool_guidance: |
   Use CSV for tabular outputs and Markdown for narrative rationale.
   Keep all dollar math in USD unless otherwise specified and document any
   currency normalization. Prefer deterministic tool outputs for allocation math,
   scenario calculations, and exposure aggregation. Every recommendation must
   include explicit thesis-break triggers and monitoring thresholds.
+  Treat sealed+verified artifact mutations as preflight-gated: gather
+  confirmation evidence (for example `read_file`, `spreadsheet` read/summary,
+  `web_search`/`web_fetch`, or `fact_checker`) before mutating writes.
+  Use standard mutation target args (`path`, `output_path`, `destination`)
+  and rely on accurate workspace-relative `files_changed` for every successful
+  writer invocation.
+  Keep sealed artifact post-call guard as defense-in-depth only; preflight
+  policy remains the primary enforcement control.
   Use `market_data_api` (`get_prices`, `get_returns`) for market inputs,
   `macro_regime_engine` (`classify_regime`, `score_headwinds_tailwinds`) for
   regime scoring, `factor_exposure_engine` (`estimate_betas`,
@@ -39,6 +67,7 @@ tools:
     construction and validation, spreadsheet/calculator for reconciliation, and
     document_write for narrative outputs.
   required:
+    - fact_checker
     - market_data_api
     - symbol_universe_api
     - sec_fundamentals_api
@@ -59,7 +88,40 @@ tools:
     - read_file
     - write_file
     - search_files
-  excluded: [delete_file, shell_execute, git_command]
+  excluded:
+    - academic_search
+    - analyze_code
+    - archive_access
+    - ask_user
+    - citation_manager
+    - conversation_recall
+    - correspondence_analysis
+    - delegate_task
+    - delete_file
+    - earnings_surprise_predictor
+    - edit_file
+    - filing_event_parser
+    - git_command
+    - glob_find
+    - humanize_writing
+    - insider_trading_tracker
+    - list_directory
+    - list_tools
+    - move_file
+    - options_flow_analyzer
+    - peer_review_simulator
+    - primary_source_ocr
+    - read_artifact
+    - ripgrep_search
+    - run_tool
+    - shell_execute
+    - short_interest_analyzer
+    - social_network_mapper
+    - task_tracker
+    - timeline_visualizer
+    - web_fetch
+    - web_fetch_html
+    - web_search
 
 phases:
   - id: intake-normalization
@@ -398,6 +460,10 @@ verification:
         - allocation_integrity
         - hedge_delta
         - scenario_coverage
+      flags:
+        - sealed_policy_preflight_blocked
+        - sealed_reseal_applied
+        - sealed_unexpected_mutation_detected
     outcome_policy:
       pass_states: [pass, pass_with_warnings, partial_verified]
       fail_states: [fail]
@@ -558,6 +624,18 @@ workspace_analysis:
     Prefer existing brief/holdings files over inferring constraints from goal
     text. If prior portfolio snapshots exist, treat them as baseline state for
     trade-list generation and stress comparison.
+
+replanning:
+  triggers: |
+    Replan when objective constraints are infeasible under the current
+    candidate universe, required hedge scenarios cannot be satisfied with
+    available instruments, or evidence quality/coverage fails validity gates in
+    critical-path phases.
+  guidance: |
+    If infeasible, relax non-binding preferences before hard constraints and
+    produce a nearest-feasible objective profile. If evidence is stale or
+    contradictory, refresh market/macro inputs and rerun affected upstream
+    phases before final synthesis.
 
 planner_examples:
   - goal: "Design a portfolio for $600k targeting 9% annualized return with max 15% drawdown."
